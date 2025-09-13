@@ -363,12 +363,376 @@ export function PreviewPanel({
     }
 
     if (language === 'markdown') {
+      // VS Code-style Markdown preview with comprehensive parser
+      const markdownPreviewHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Markdown Preview</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            /* VS Code Markdown Preview Styles */
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif;
+              font-size: 14px;
+              padding: 0 26px;
+              line-height: 22px;
+              word-wrap: break-word;
+              background-color: #ffffff;
+              color: #333333;
+              margin: 0;
+              box-sizing: border-box;
+            }
+
+            /* Headers */
+            h1, h2, h3, h4, h5, h6 {
+              font-weight: 600;
+              margin-top: 24px;
+              margin-bottom: 16px;
+              line-height: 1.25;
+              color: #24292f;
+            }
+
+            h1 {
+              font-size: 2em;
+              margin-top: 0;
+              margin-bottom: 16px;
+              border-bottom: 1px solid #eaecef;
+              padding-bottom: 0.3em;
+            }
+
+            h2 {
+              font-size: 1.5em;
+              border-bottom: 1px solid #eaecef;
+              padding-bottom: 0.3em;
+            }
+
+            h3 { font-size: 1.25em; }
+            h4 { font-size: 1em; }
+            h5 { font-size: 0.875em; }
+            h6 { font-size: 0.85em; color: #6a737d; }
+
+            /* Paragraphs */
+            p {
+              margin-top: 0;
+              margin-bottom: 16px;
+            }
+
+            /* Lists */
+            ul, ol {
+              padding-left: 2em;
+              margin-top: 0;
+              margin-bottom: 16px;
+            }
+
+            li {
+              margin-bottom: 0.25em;
+            }
+
+            li > p {
+              margin-top: 16px;
+            }
+
+            li + li {
+              margin-top: 0.25em;
+            }
+
+            /* Blockquotes */
+            blockquote {
+              margin: 0 0 16px 0;
+              padding: 0 1em;
+              color: #6a737d;
+              border-left: 0.25em solid #dfe2e5;
+            }
+
+            blockquote > :first-child {
+              margin-top: 0;
+            }
+
+            blockquote > :last-child {
+              margin-bottom: 0;
+            }
+
+            /* Code */
+            code {
+              background-color: rgba(175, 184, 193, 0.2);
+              padding: 0.2em 0.4em;
+              border-radius: 6px;
+              font-size: 85%;
+              font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+            }
+
+            pre {
+              background-color: #f6f8fa;
+              border-radius: 6px;
+              font-size: 85%;
+              line-height: 1.45;
+              overflow: auto;
+              padding: 16px;
+              margin-bottom: 16px;
+            }
+
+            pre code {
+              background-color: transparent;
+              border: 0;
+              display: inline;
+              line-height: inherit;
+              margin: 0;
+              max-width: auto;
+              padding: 0;
+              word-wrap: normal;
+            }
+
+            /* Tables */
+            table {
+              border-collapse: collapse;
+              border-spacing: 0;
+              width: 100%;
+              overflow: auto;
+              margin-bottom: 16px;
+            }
+
+            table th,
+            table td {
+              padding: 6px 13px;
+              border: 1px solid #dfe2e5;
+            }
+
+            table th {
+              font-weight: 600;
+              background-color: #f6f8fa;
+            }
+
+            table tr {
+              background-color: #fff;
+              border-top: 1px solid #c6cbd1;
+            }
+
+            table tr:nth-child(2n) {
+              background-color: #f6f8fa;
+            }
+
+            /* Horizontal Rule */
+            hr {
+              border: 0;
+              border-top: 1px solid #eee;
+              height: 0.25em;
+              margin: 24px 0;
+              background-color: transparent;
+            }
+
+            /* Links */
+            a {
+              color: #0366d6;
+              text-decoration: none;
+            }
+
+            a:hover {
+              text-decoration: underline;
+            }
+
+            /* Images */
+            img {
+              max-width: 100%;
+              height: auto;
+              box-sizing: content-box;
+            }
+
+            /* Task Lists */
+            .task-list-item {
+              list-style-type: none;
+            }
+
+            .task-list-item-checkbox {
+              margin: 0 0.2em 0.25em -1.6em;
+              vertical-align: middle;
+            }
+
+            /* Syntax Highlighting for Code Blocks */
+            .hljs {
+              display: block;
+              overflow-x: auto;
+              padding: 0.5em;
+              background: #f6f8fa;
+            }
+
+            .hljs-comment,
+            .hljs-quote {
+              color: #6a737d;
+              font-style: italic;
+            }
+
+            .hljs-keyword,
+            .hljs-selector-tag,
+            .hljs-subst {
+              color: #d73a49;
+            }
+
+            .hljs-number,
+            .hljs-literal,
+            .hljs-variable,
+            .hljs-template-variable,
+            .hljs-tag .hljs-attr {
+              color: #005cc5;
+            }
+
+            .hljs-string,
+            .hljs-doctag {
+              color: #032f62;
+            }
+
+            .hljs-title,
+            .hljs-section,
+            .hljs-selector-id {
+              color: #6f42c1;
+              font-weight: bold;
+            }
+
+            .hljs-type,
+            .hljs-class .hljs-title {
+              color: #d73a49;
+            }
+          </style>
+        </head>
+        <body>
+          <div id="markdown-content"></div>
+          
+          <script>
+            // Comprehensive Markdown to HTML parser (VS Code style)
+            function parseMarkdown(markdown) {
+              let html = markdown;
+              
+              // Escape HTML entities first
+              html = html
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+              
+              // Code blocks (must be before inline code)
+              html = html.replace(/\`\`\`([^\\n]*)\\n([\\s\\S]*?)\`\`\`/g, (match, lang, code) => {
+                const language = lang.trim() || 'plaintext';
+                return \`<pre><code class="hljs language-\${language}">\${code.trim()}</code></pre>\`;
+              });
+              
+              // Inline code
+              html = html.replace(/\`([^\`]+)\`/g, '<code>$1</code>');
+              
+              // Headers (with proper line boundary matching)
+              html = html.replace(/^#{6}\\s+(.+)$/gm, '<h6>$1</h6>');
+              html = html.replace(/^#{5}\\s+(.+)$/gm, '<h5>$1</h5>');
+              html = html.replace(/^#{4}\\s+(.+)$/gm, '<h4>$1</h4>');
+              html = html.replace(/^#{3}\\s+(.+)$/gm, '<h3>$1</h3>');
+              html = html.replace(/^#{2}\\s+(.+)$/gm, '<h2>$1</h2>');
+              html = html.replace(/^#{1}\\s+(.+)$/gm, '<h1>$1</h1>');
+              
+              // Bold and Italic
+              html = html.replace(/\\*\\*\\*([^\\*]+)\\*\\*\\*/g, '<strong><em>$1</em></strong>');
+              html = html.replace(/\\*\\*([^\\*]+)\\*\\*/g, '<strong>$1</strong>');
+              html = html.replace(/\\*([^\\*]+)\\*/g, '<em>$1</em>');
+              html = html.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+              html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
+              
+              // Strikethrough
+              html = html.replace(/~~([^~]+)~~/g, '<del>$1</del>');
+              
+              // Links
+              html = html.replace(/\\[([^\\]]+)\\]\\(([^\\)]+)\\)/g, '<a href="$2">$1</a>');
+              
+              // Images
+              html = html.replace(/!\\[([^\\]]*)\\]\\(([^\\)]+)\\)/g, '<img src="$2" alt="$1" />');
+              
+              // Horizontal rules
+              html = html.replace(/^---+$/gm, '<hr>');
+              html = html.replace(/^\\*\\*\\*+$/gm, '<hr>');
+              
+              // Blockquotes
+              html = html.replace(/^>\\s*(.+)$/gm, '<blockquote><p>$1</p></blockquote>');
+              
+              // Task lists
+              html = html.replace(/^\\s*-\\s+\\[x\\]\\s+(.+)$/gm, '<li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" checked disabled> $1</li>');
+              html = html.replace(/^\\s*-\\s+\\[ \\]\\s+(.+)$/gm, '<li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled> $1</li>');
+              
+              // Unordered lists
+              html = html.replace(/^\\s*[-\\*\\+]\\s+(.+)$/gm, '<li>$1</li>');
+              
+              // Ordered lists
+              html = html.replace(/^\\s*\\d+\\.\\s+(.+)$/gm, '<li>$1</li>');
+              
+              // Wrap consecutive list items
+              html = html.replace(/(<li>.*<\\/li>)(\\s*)(<li>.*<\\/li>)/gs, (match) => {
+                const items = match.match(/<li>.*?<\\/li>/gs);
+                if (items && items.length > 1) {
+                  // Check if it's a task list
+                  if (match.includes('task-list-item')) {
+                    return \`<ul class="task-list">\${items.join('')}</ul>\`;
+                  }
+                  return \`<ul>\${items.join('')}</ul>\`;
+                }
+                return match;
+              });
+              
+              // Handle single list items
+              html = html.replace(/^(<li>.*<\\/li>)$/gm, '<ul>$1</ul>');
+              
+              // Tables
+              html = html.replace(/^\\|(.+)\\|$/gm, (match, content) => {
+                const cells = content.split('|').map(cell => cell.trim());
+                return '<tr>' + cells.map(cell => \`<td>\${cell}</td>\`).join('') + '</tr>';
+              });
+              
+              // Wrap table rows
+              html = html.replace(/(<tr>.*<\\/tr>)(\\s*)(<tr>.*<\\/tr>)/gs, (match) => {
+                const rows = match.match(/<tr>.*?<\\/tr>/gs);
+                if (rows && rows.length > 0) {
+                  // First row as header
+                  const headerRow = rows[0].replace(/<td>/g, '<th>').replace(/<\\/td>/g, '</th>');
+                  const bodyRows = rows.slice(1);
+                  return \`<table><thead>\${headerRow}</thead><tbody>\${bodyRows.join('')}</tbody></table>\`;
+                }
+                return match;
+              });
+              
+              // Line breaks (double space or double newline)
+              html = html.replace(/  \\n/g, '<br>\\n');
+              html = html.replace(/\\n\\n/g, '</p><p>');
+              
+              // Wrap in paragraphs
+              html = '<p>' + html + '</p>';
+              
+              // Clean up empty paragraphs and fix paragraph nesting
+              html = html.replace(/<p><\\/p>/g, '');
+              html = html.replace(/<p>(<h[1-6]>)/g, '$1');
+              html = html.replace(/(<\\/h[1-6]>)<\\/p>/g, '$1');
+              html = html.replace(/<p>(<hr>)<\\/p>/g, '$1');
+              html = html.replace(/<p>(<blockquote>)/g, '$1');
+              html = html.replace(/(<\\/blockquote>)<\\/p>/g, '$1');
+              html = html.replace(/<p>(<ul)/g, '$1');
+              html = html.replace(/(<\\/ul>)<\\/p>/g, '$1');
+              html = html.replace(/<p>(<table>)/g, '$1');
+              html = html.replace(/(<\\/table>)<\\/p>/g, '$1');
+              html = html.replace(/<p>(<pre>)/g, '$1');
+              html = html.replace(/(<\\/pre>)<\\/p>/g, '$1');
+              
+              return html;
+            }
+            
+            // Render the markdown content
+            const markdownContent = \`${activeFile.content.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`;
+            const htmlContent = parseMarkdown(markdownContent);
+            document.getElementById('markdown-content').innerHTML = htmlContent;
+          </script>
+        </body>
+        </html>
+      `;
+      
       return (
-        <div className="h-full p-4 bg-white overflow-auto">
-          <div className="prose prose-sm max-w-none">
-            <pre className="whitespace-pre-wrap text-sm">{activeFile.content}</pre>
-          </div>
-        </div>
+        <iframe
+          srcDoc={markdownPreviewHtml}
+          className="w-full h-full border-0"
+          title="Markdown Preview"
+          sandbox="allow-scripts"
+        />
       );
     }
 

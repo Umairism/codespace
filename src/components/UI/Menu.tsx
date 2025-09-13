@@ -15,7 +15,8 @@ import {
   Terminal,
   Sidebar,
   Download,
-  Archive
+  Archive,
+  Upload
 } from 'lucide-react';
 
 interface MenuProps {
@@ -24,6 +25,7 @@ interface MenuProps {
   onNewProject?: () => void;
   onSave: () => void;
   onSaveAll: () => void;
+  onUploadFiles?: () => void;
   onDownloadProject?: () => void;
   onDownloadProjectFiles?: () => void;
   onSettings: () => void;
@@ -98,6 +100,7 @@ export function Menu({
   onNewProject,
   onSave, 
   onSaveAll,
+  onUploadFiles,
   onDownloadProject,
   onDownloadProjectFiles,
   onSettings,
@@ -117,6 +120,8 @@ export function Menu({
         <MenuItem label="New File" shortcut="Ctrl+N" icon={FileText} onClick={onNewFile} />
         <MenuItem label="New Folder" icon={FolderPlus} onClick={onNewFolder} />
         {onNewProject && <MenuItem label="New Project" icon={Folder} onClick={onNewProject} />}
+        <div className="border-t border-gray-700 my-1" />
+        {onUploadFiles && <MenuItem label="Upload Files" shortcut="Ctrl+O" icon={Upload} onClick={onUploadFiles} />}
         <div className="border-t border-gray-700 my-1" />
         <MenuItem label="Save" shortcut="Ctrl+S" icon={Save} onClick={onSave} />
         <MenuItem label="Save All" shortcut="Ctrl+Shift+S" icon={Save} onClick={onSaveAll} />

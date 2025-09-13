@@ -10,6 +10,7 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { getDefaultProjects } from './utils/projectTemplates';
 import { getLanguageFromExtension, getFileExtension } from './utils/fileUtils';
 import { downloadProject, downloadProjectFiles } from './utils/fileDownload';
+import { uploadFiles } from './utils/fileUpload';
 import { SettingsDialog } from './components/UI/SettingsDialog';
 import { InputDialog } from './components/UI/InputDialog';
 import { ConfirmDialog } from './components/UI/ConfirmDialog';
@@ -262,6 +263,60 @@ function App() {
     }
   }, [currentProject, addNotification]);
 
+  const handleUploadFiles = useCallback(async () => {
+    try {
+      const result = await uploadFiles({
+        multiple: true,
+        maxFileSize: 10 // 10MB limit
+      });
+
+      if (!result.success) {
+        if (result.errors.length > 0) {
+          result.errors.forEach(error => {
+            addNotification('error', error);
+          });
+        }
+        return;
+      }
+
+      if (result.files.length === 0) {
+        addNotification('info', 'No files were uploaded');
+        return;
+      }
+
+      // Add uploaded files to the current project
+      let addedCount = 0;
+      result.files.forEach(file => {
+        try {
+          // Create the file with the uploaded content directly
+          createFile(file.name, undefined, 'file', file.content);
+          
+          addedCount++;
+        } catch (error) {
+          console.warn(`Failed to add file ${file.name}:`, error);
+          addNotification('error', `Failed to add file "${file.name}"`);
+        }
+      });
+
+      if (addedCount > 0) {
+        setRenderKey(prev => prev + 1);
+        addNotification('success', `Successfully uploaded ${addedCount} file${addedCount === 1 ? '' : 's'}`);
+        
+        // Open the first uploaded file
+        if (result.files.length > 0) {
+          const firstFile = currentProject.files.find(f => f.name === result.files[0].name);
+          if (firstFile) {
+            openFile(firstFile.id);
+          }
+        }
+      }
+
+    } catch (error) {
+      console.error('Failed to upload files:', error);
+      addNotification('error', 'Failed to upload files');
+    }
+  }, [createFile, openFile, currentProject.files, addNotification]);
+
   const handleNewProject = useCallback(() => {
     setProjectTemplateVisible(true);
   }, []);
@@ -389,6 +444,7 @@ function App() {
         onNewProject={handleNewProject}
         onSave={handleSave}
         onSaveAll={handleSaveAll}
+        onUploadFiles={handleUploadFiles}
         onDownloadProject={handleDownloadProject}
         onDownloadProjectFiles={handleDownloadProjectFiles}
         onSettings={handleSettings}

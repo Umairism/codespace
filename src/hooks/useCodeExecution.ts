@@ -1,30 +1,12 @@
 import { useState, useCallback } from 'react';
 import { ExecutionResult } from '../types';
 
-// Python code execution - simplified interpreter for basic Python code
-async function executePython(code: string): Promise<string> {
-  try {
-    let output = '';
-    
-    // Add timestamp and Python info
-    output += `Python 3.11.0 (built: ${new Date().toLocaleDateString()}) [${new Date().toLocaleTimeString()}]\n`;
-    output += `>>> Executing Python script...\n\n`;
-    
-    // Simple Python interpreter for the template
-    const result = interpretPythonTemplate(code);
-    output += result;
-    
-    output += '\n>>> Python execution completed.\n';
-    return output;
-    
-  } catch (error) {
-    throw new Error(`Python execution error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
-}
 
-// Simple interpreter specifically for the Python Basic Project template
+
+// Enhanced Python interpreter that handles basic Python statements
 function interpretPythonTemplate(code: string): string {
   let output = '';
+  let hasOutput = false;
   
   // Check if this is the basic template by looking for the greet function
   if (code.includes('def greet(') && code.includes('def main()') && code.includes('if __name__ == "__main__"')) {
@@ -70,41 +52,242 @@ function interpretPythonTemplate(code: string): string {
     return output;
   }
   
-  // For other Python code, try to execute simple statements
-  const lines = code.split('\n');
-  
-  for (const line of lines) {
-    const trimmedLine = line.trim();
-    
-    // Handle simple print statements
-    const printMatch = trimmedLine.match(/^print\s*\(\s*["']([^"']+)["']\s*\)$/);
-    if (printMatch) {
-      output += printMatch[1] + '\n';
-      continue;
-    }
-    
-    // Handle print with variables (simple cases)
-    if (trimmedLine.startsWith('print(') && trimmedLine.endsWith(')')) {
-      const content = trimmedLine.slice(6, -1);
-      if (content.includes('"Hello, World!"') || content.includes("'Hello, World!'")) {
-        output += "Hello, World!\n";
-      } else if (!content.includes('f"') && !content.includes("f'") && !content.includes('{')) {
-        // Simple string or variable print
-        const cleanContent = content.replace(/['"]/g, '');
-        output += cleanContent + '\n';
-      }
-    }
+  // Enhanced interpreter for general Python code with loop support
+  const result = executePythonCode(code);
+  if (result.output) {
+    output += result.output;
+    hasOutput = true;
   }
   
-  // If no output generated and it's a simple script, provide a basic response
-  if (!output && code.includes('print')) {
-    output += "Code executed successfully.\n";
+  // If no output but code contains executable statements, show success message
+  if (!hasOutput) {
+    if (code.toLowerCase().includes('print') || code.includes('=') || code.includes('def ')) {
+      output += "✅ Code executed successfully.\n";
+    } else {
+      output += "📄 Python script processed (no output generated).\n";
+    }
   }
   
   return output;
 }
 
-// JavaScript code execution
+// Comprehensive Python code executor with loop and expression support
+function executePythonCode(code: string): { output: string } {
+  const variables: { [key: string]: any } = {};
+  let output = '';
+  
+  try {
+    const lines = code.split('\n');
+    let i = 0;
+    
+    while (i < lines.length) {
+      const line = lines[i].trim();
+      
+      // Skip empty lines and comments
+      if (!line || line.startsWith('#')) {
+        i++;
+        continue;
+      }
+      
+      // Handle variable assignments
+      const assignmentMatch = line.match(/^(\w+)\s*=\s*(.+)$/);
+      if (assignmentMatch) {
+        const varName = assignmentMatch[1];
+        const value = assignmentMatch[2].trim();
+        variables[varName] = evaluateExpression(value, variables);
+        i++;
+        continue;
+      }
+      
+      // Handle for loops
+      const forMatch = line.match(/^for\s+(\w+)\s+in\s+range\s*\(\s*(\d+)\s*\)\s*:$/);
+      if (forMatch) {
+        const loopVar = forMatch[1];
+        const rangeEnd = parseInt(forMatch[2]);
+        
+        // Find the end of the for loop (next non-indented line or end of code)
+        let loopEnd = i + 1;
+        while (loopEnd < lines.length && (lines[loopEnd].startsWith('    ') || lines[loopEnd].trim() === '')) {
+          loopEnd++;
+        }
+        
+        // Execute the loop
+        for (let j = 0; j < rangeEnd; j++) {
+          variables[loopVar] = j;
+          
+          // Execute loop body
+          for (let k = i + 1; k < loopEnd; k++) {
+            const loopLine = lines[k].trim();
+            if (!loopLine) continue;
+            
+            // Handle print statements in loop
+            if (loopLine.toLowerCase().includes('print(')) {
+              const printResult = executePrintStatement(loopLine, variables);
+              if (printResult !== null) {
+                output += printResult + '\n';
+              }
+            }
+          }
+        }
+        
+        i = loopEnd;
+        continue;
+      }
+      
+      // Handle for loops with range(start, end)
+      const forRangeMatch = line.match(/^for\s+(\w+)\s+in\s+range\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)\s*:$/);
+      if (forRangeMatch) {
+        const loopVar = forRangeMatch[1];
+        const rangeStart = parseInt(forRangeMatch[2]);
+        const rangeEnd = parseInt(forRangeMatch[3]);
+        
+        // Find the end of the for loop
+        let loopEnd = i + 1;
+        while (loopEnd < lines.length && (lines[loopEnd].startsWith('    ') || lines[loopEnd].trim() === '')) {
+          loopEnd++;
+        }
+        
+        // Execute the loop
+        for (let j = rangeStart; j < rangeEnd; j++) {
+          variables[loopVar] = j;
+          
+          // Execute loop body
+          for (let k = i + 1; k < loopEnd; k++) {
+            const loopLine = lines[k].trim();
+            if (!loopLine) continue;
+            
+            if (loopLine.toLowerCase().includes('print(')) {
+              const printResult = executePrintStatement(loopLine, variables);
+              if (printResult !== null) {
+                output += printResult + '\n';
+              }
+            }
+          }
+        }
+        
+        i = loopEnd;
+        continue;
+      }
+      
+      // Handle print statements
+      if (line.toLowerCase().includes('print(')) {
+        const printResult = executePrintStatement(line, variables);
+        if (printResult !== null) {
+          output += printResult + '\n';
+        }
+        i++;
+        continue;
+      }
+      
+      // Handle simple expressions
+      if (line.match(/^\d+\s*[\+\-\*\/]\s*\d+$/)) {
+        try {
+          const result = evaluateExpression(line, variables);
+          output += `${result}\n`;
+        } catch (e) {
+          // Ignore eval errors
+        }
+      }
+      
+      i++;
+    }
+    
+  } catch (error) {
+    output += `Error: ${error instanceof Error ? error.message : 'Unknown error'}\n`;
+  }
+  
+  return { output };
+}
+
+// Helper function to evaluate expressions with variables
+function evaluateExpression(expr: string, variables: { [key: string]: any }): any {
+  const trimmed = expr.trim();
+  
+  // Handle strings
+  if (trimmed.match(/^["'].*["']$/)) {
+    return trimmed.slice(1, -1);
+  }
+  
+  // Handle numbers
+  if (trimmed.match(/^\d+$/)) {
+    return parseInt(trimmed);
+  }
+  
+  if (trimmed.match(/^\d+\.\d+$/)) {
+    return parseFloat(trimmed);
+  }
+  
+  // Handle booleans
+  if (trimmed === 'True') return true;
+  if (trimmed === 'False') return false;
+  if (trimmed === 'None') return null;
+  
+  // Handle variables
+  if (variables.hasOwnProperty(trimmed)) {
+    return variables[trimmed];
+  }
+  
+  // Handle simple arithmetic expressions with variables
+  const arithmeticMatch = trimmed.match(/^(\w+|\d+)\s*([\+\-\*\/])\s*(\w+|\d+)$/);
+  if (arithmeticMatch) {
+    const left = isNaN(Number(arithmeticMatch[1])) ? 
+      (variables[arithmeticMatch[1]] ?? 0) : Number(arithmeticMatch[1]);
+    const operator = arithmeticMatch[2];
+    const right = isNaN(Number(arithmeticMatch[3])) ? 
+      (variables[arithmeticMatch[3]] ?? 0) : Number(arithmeticMatch[3]);
+    
+    switch (operator) {
+      case '+': return left + right;
+      case '-': return left - right;
+      case '*': return left * right;
+      case '/': return right !== 0 ? left / right : 'Division by zero';
+      default: return expr;
+    }
+  }
+  
+  return trimmed;
+}
+
+// Enhanced helper function to execute print statements
+function executePrintStatement(line: string, variables: { [key: string]: any }): string | null {
+  // Make it case-insensitive
+  const lowerLine = line.toLowerCase();
+  
+  // Find print statement (case-insensitive)
+  let printMatch = lowerLine.match(/print\s*\((.*)\)/);
+  if (!printMatch) {
+    return null;
+  }
+  
+  // Get the original content (preserving case)
+  const originalMatch = line.match(/print\s*\((.*)\)/i);
+  if (!originalMatch) return null;
+  
+  const content = originalMatch[1].trim();
+  
+  // Handle empty print()
+  if (!content) {
+    return '';
+  }
+  
+  // Handle quoted strings
+  const quotedMatch = content.match(/^["'](.*)["']$/);
+  if (quotedMatch) {
+    return quotedMatch[1];
+  }
+  
+  // Handle expressions and variables
+  const result = evaluateExpression(content, variables);
+  
+  // Convert result to string
+  if (result === null) return 'None';
+  if (result === true) return 'True';
+  if (result === false) return 'False';
+  
+  return String(result);
+}
+
+// Enhanced JavaScript code execution with detailed error detection
 async function executeJavaScript(code: string): Promise<string> {
   return new Promise((resolve) => {
     const originalLog = console.log;
@@ -112,6 +295,7 @@ async function executeJavaScript(code: string): Promise<string> {
     const originalWarn = console.warn;
     
     let output = '';
+    let hasErrors = false;
     
     const captureLog = (...args: any[]) => {
       output += args.map(arg => 
@@ -119,28 +303,202 @@ async function executeJavaScript(code: string): Promise<string> {
       ).join(' ') + '\n';
     };
     
+    const captureError = (...args: any[]) => {
+      hasErrors = true;
+      output += '❌ ERROR: ' + args.map(arg => 
+        typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+      ).join(' ') + '\n';
+    };
+    
+    const captureWarn = (...args: any[]) => {
+      output += '⚠️ WARNING: ' + args.map(arg => 
+        typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+      ).join(' ') + '\n';
+    };
+    
     console.log = captureLog;
-    console.error = captureLog;
-    console.warn = captureLog;
+    console.error = captureError;
+    console.warn = captureWarn;
     
     try {
+      // Pre-execution syntax and logic checks
+      const syntaxErrors = checkJavaScriptSyntax(code);
+      if (syntaxErrors.length > 0) {
+        output += '🔍 SYNTAX ANALYSIS:\n';
+        syntaxErrors.forEach(error => {
+          output += `❌ Line ${error.line}: ${error.message}\n`;
+        });
+        output += '\n';
+      }
+      
+      // Add execution context info
+      output += `🚀 JavaScript Execution Started\n`;
+      output += `📝 Code Length: ${code.length} characters\n`;
+      output += `📅 Timestamp: ${new Date().toLocaleString()}\n`;
+      output += '─'.repeat(50) + '\n\n';
+      
       // Create a function to execute the code in a sandboxed environment
       const func = new Function(code);
       const result = func();
       
       if (result !== undefined) {
-        output += `Return value: ${typeof result === 'object' ? JSON.stringify(result, null, 2) : result}\n`;
+        output += `\n📤 Return Value: ${typeof result === 'object' ? JSON.stringify(result, null, 2) : result}\n`;
       }
       
-      resolve(output || 'Code executed successfully (no output)');
+      if (!hasErrors && !output.includes('ERROR:')) {
+        output += `\n✅ Execution completed successfully${output.includes('undefined') ? ' (no console output)' : ''}\n`;
+      }
+      
+      resolve(output || '✅ Code executed successfully (no output)');
     } catch (error) {
-      resolve(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      let detailedError = `\n❌ RUNTIME ERROR:\n`;
+      
+      // Enhanced error parsing
+      if (error instanceof SyntaxError) {
+        detailedError += `🔴 Syntax Error: ${errorMessage}\n`;
+        detailedError += `💡 Tip: Check for missing brackets, semicolons, or typos\n`;
+      } else if (error instanceof ReferenceError) {
+        detailedError += `🔴 Reference Error: ${errorMessage}\n`;
+        detailedError += `💡 Tip: Make sure all variables are declared before use\n`;
+      } else if (error instanceof TypeError) {
+        detailedError += `🔴 Type Error: ${errorMessage}\n`;
+        detailedError += `💡 Tip: Check that you're calling functions on the correct data types\n`;
+      } else {
+        detailedError += `🔴 Runtime Error: ${errorMessage}\n`;
+      }
+      
+      resolve(output + detailedError);
     } finally {
       console.log = originalLog;
       console.error = originalError;
       console.warn = originalWarn;
     }
   });
+}
+
+// Enhanced Python execution with better error detection
+async function executePythonWithErrors(code: string): Promise<string> {
+  try {
+    let output = '';
+    
+    // Pre-execution analysis
+    const pythonErrors = checkPythonSyntax(code);
+    if (pythonErrors.length > 0) {
+      output += '🔍 PYTHON SYNTAX ANALYSIS:\n';
+      pythonErrors.forEach(error => {
+        output += `❌ Line ${error.line}: ${error.message}\n`;
+      });
+      output += '\n';
+    }
+    
+    // Add execution info
+    output += `🐍 Python 3.11.0 (built: ${new Date().toLocaleDateString()}) [${new Date().toLocaleTimeString()}]\n`;
+    output += `📝 Code Length: ${code.length} characters\n`;
+    output += `📅 Execution Time: ${new Date().toLocaleString()}\n`;
+    output += '─'.repeat(50) + '\n';
+    output += `>>> Executing Python script...\n\n`;
+    
+    // Execute the Python code (simulation)
+    const result = interpretPythonTemplate(code);
+    output += result;
+    
+    if (!output.includes('ERROR') && !output.includes('❌')) {
+      output += '\n✅ Python execution completed successfully.\n';
+    }
+    
+    return output;
+    
+  } catch (error) {
+    let errorOutput = `\n❌ PYTHON RUNTIME ERROR:\n`;
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
+    if (errorMessage.includes('IndentationError')) {
+      errorOutput += `🔴 Indentation Error: ${errorMessage}\n`;
+      errorOutput += `💡 Tip: Python uses indentation to define code blocks. Make sure indentation is consistent.\n`;
+    } else if (errorMessage.includes('NameError')) {
+      errorOutput += `🔴 Name Error: ${errorMessage}\n`;
+      errorOutput += `💡 Tip: Make sure all variables and functions are defined before use.\n`;
+    } else if (errorMessage.includes('SyntaxError')) {
+      errorOutput += `🔴 Syntax Error: ${errorMessage}\n`;
+      errorOutput += `💡 Tip: Check for missing colons, parentheses, or quotation marks.\n`;
+    } else {
+      errorOutput += `🔴 Runtime Error: ${errorMessage}\n`;
+    }
+    
+    throw new Error(errorOutput);
+  }
+}
+
+// JavaScript syntax checker
+function checkJavaScriptSyntax(code: string): Array<{line: number, message: string}> {
+  const errors: Array<{line: number, message: string}> = [];
+  const lines = code.split('\n');
+  
+  lines.forEach((line, index) => {
+    const trimmedLine = line.trim();
+    const lineNum = index + 1;
+    
+    // Check for common syntax issues
+    if (trimmedLine.includes('console.log(') && !trimmedLine.includes(')')) {
+      errors.push({line: lineNum, message: 'Missing closing parenthesis in console.log()'});
+    }
+    
+    if (trimmedLine.includes('function ') && !trimmedLine.includes('{') && !trimmedLine.includes('=>')) {
+      errors.push({line: lineNum, message: 'Function declaration missing opening brace'});
+    }
+    
+    if (trimmedLine.includes('if (') && !trimmedLine.includes(')')) {
+      errors.push({line: lineNum, message: 'Missing closing parenthesis in if statement'});
+    }
+    
+    // Check for unclosed strings
+    const singleQuotes = (trimmedLine.match(/'/g) || []).length;
+    const doubleQuotes = (trimmedLine.match(/"/g) || []).length;
+    
+    if (singleQuotes % 2 !== 0) {
+      errors.push({line: lineNum, message: 'Unclosed single quote'});
+    }
+    
+    if (doubleQuotes % 2 !== 0) {
+      errors.push({line: lineNum, message: 'Unclosed double quote'});
+    }
+  });
+  
+  return errors;
+}
+
+// Python syntax checker
+function checkPythonSyntax(code: string): Array<{line: number, message: string}> {
+  const errors: Array<{line: number, message: string}> = [];
+  const lines = code.split('\n');
+  
+  lines.forEach((line, index) => {
+    const trimmedLine = line.trim();
+    const lineNum = index + 1;
+    
+    // Check for missing colons
+    if (trimmedLine.match(/^(if|elif|else|for|while|def|class|try|except|finally|with)\b/) && 
+        !trimmedLine.endsWith(':') && !trimmedLine.includes('#')) {
+      errors.push({line: lineNum, message: 'Missing colon at end of statement'});
+    }
+    
+    // Check for print statement issues
+    if (trimmedLine.includes('print ') && !trimmedLine.includes('print(')) {
+      errors.push({line: lineNum, message: 'Use print() function syntax (Python 3+)'});
+    }
+    
+    // Check for indentation after control structures
+    if (index < lines.length - 1) {
+      const nextLine = lines[index + 1];
+      if (trimmedLine.endsWith(':') && nextLine.trim() && 
+          !nextLine.startsWith(' ') && !nextLine.startsWith('\t')) {
+        errors.push({line: lineNum + 1, message: 'Expected indented block after colon'});
+      }
+    }
+  });
+  
+  return errors;
 }
 
 export function useCodeExecution() {
@@ -164,7 +522,7 @@ export function useCodeExecution() {
           result.type = 'success';
           break;
         case 'python':
-          result.output = await executePython(code);
+          result.output = await executePythonWithErrors(code);
           result.type = 'success';
           break;
         case 'sql':

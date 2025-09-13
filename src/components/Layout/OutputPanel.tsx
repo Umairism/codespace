@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Play, Square, Trash2, Terminal, Bug, FileText } from 'lucide-react';
 import { ExecutionResult } from '../../types';
 import { Button } from '../UI/Button';
@@ -110,13 +110,28 @@ export function OutputPanel({
                         {formatTimestamp(result.timestamp)}
                       </span>
                     </div>
-                    <pre className="text-gray-300 whitespace-pre-wrap">
-                      {result.output}
-                    </pre>
+                    <div className="text-gray-300">
+                      {result.output.split('\n').map((line, lineIndex) => (
+                        <div key={lineIndex} className={`${
+                          line.includes('❌') ? 'text-red-400' :
+                          line.includes('⚠️') ? 'text-yellow-400' :
+                          line.includes('✅') ? 'text-green-400' :
+                          line.includes('🔍') ? 'text-blue-400' :
+                          line.includes('💡') ? 'text-cyan-400' :
+                          line.includes('🚀') || line.includes('🐍') ? 'text-purple-400' :
+                          line.includes('📝') || line.includes('📅') ? 'text-gray-400' :
+                          'text-gray-300'
+                        }`}>
+                          {line || '\u00A0'}
+                        </div>
+                      ))}
+                    </div>
                     {result.error && (
-                      <pre className="text-red-400 mt-1 whitespace-pre-wrap">
-                        Error: {result.error}
-                      </pre>
+                      <div className="mt-2 p-2 bg-red-900/20 border border-red-700 rounded">
+                        <pre className="text-red-300 whitespace-pre-wrap text-sm">
+                          {result.error}
+                        </pre>
+                      </div>
                     )}
                   </div>
                 ))}
@@ -137,15 +152,76 @@ export function OutputPanel({
         )}
 
         {activeTab === 'debug' && (
-          <div className="font-mono text-sm text-gray-300">
-            <p>Debug panel - debugging information will appear here</p>
-            {output.filter(r => r.type === 'error').map((result, index) => (
-              <div key={index} className="mt-2 p-2 bg-red-900/20 border border-red-700 rounded">
-                <pre className="whitespace-pre-wrap text-red-300">
-                  {result.error || result.output}
-                </pre>
+          <div className="font-mono text-sm">
+            {output.filter(r => r.type === 'error' || r.output.includes('❌') || r.output.includes('🔍')).length === 0 ? (
+              <div className="text-gray-500">
+                <p>🔍 Debug panel - Error analysis and diagnostics will appear here</p>
+                <p>💡 Run code to see syntax checks and error details</p>
               </div>
-            ))}
+            ) : (
+              <div className="space-y-3">
+                {output.filter(r => r.type === 'error' || r.output.includes('❌') || r.output.includes('🔍')).map((result, index) => (
+                  <div key={index} className="border border-red-700/30 rounded-lg p-3 bg-red-900/10">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-red-400 font-semibold text-xs">
+                        🐛 DEBUG INFO
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {formatTimestamp(result.timestamp)}
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      {result.output.split('\n').map((line, lineIndex) => {
+                        if (line.includes('🔍')) {
+                          return (
+                            <div key={lineIndex} className="text-blue-400 font-medium text-sm">
+                              {line}
+                            </div>
+                          );
+                        }
+                        if (line.includes('❌')) {
+                          return (
+                            <div key={lineIndex} className="text-red-400 text-sm">
+                              {line}
+                            </div>
+                          );
+                        }
+                        if (line.includes('💡')) {
+                          return (
+                            <div key={lineIndex} className="text-cyan-400 text-sm italic">
+                              {line}
+                            </div>
+                          );
+                        }
+                        if (line.includes('🔴')) {
+                          return (
+                            <div key={lineIndex} className="text-red-300 text-sm font-medium">
+                              {line}
+                            </div>
+                          );
+                        }
+                        if (line.trim()) {
+                          return (
+                            <div key={lineIndex} className="text-gray-300 text-sm">
+                              {line}
+                            </div>
+                          );
+                        }
+                        return <div key={lineIndex} className="h-1"></div>;
+                      })}
+                    </div>
+                    
+                    {result.error && (
+                      <div className="mt-2 p-2 bg-red-900/30 border border-red-600 rounded text-red-200 text-sm">
+                        <strong>Stack Trace:</strong>
+                        <pre className="whitespace-pre-wrap mt-1">{result.error}</pre>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

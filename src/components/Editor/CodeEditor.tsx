@@ -28,18 +28,22 @@ export function CodeEditor({ file, onChange, settings, className = '' }: CodeEdi
     editorRef.current = editor;
     setEditor(editor);
     
-    // Configure editor theme
+    // Configure enhanced theme with better syntax highlighting
     monaco.editor.defineTheme('vs-dark-custom', {
       base: 'vs-dark',
       inherit: true,
       rules: [
-        { token: 'comment', foreground: '6A9955' },
-        { token: 'keyword', foreground: '569CD6' },
+        { token: 'comment', foreground: '6A9955', fontStyle: 'italic' },
+        { token: 'keyword', foreground: '569CD6', fontStyle: 'bold' },
         { token: 'string', foreground: 'CE9178' },
         { token: 'number', foreground: 'B5CEA8' },
         { token: 'tag', foreground: '4FC1FF' },
         { token: 'attribute.name', foreground: '92C5F8' },
         { token: 'attribute.value', foreground: 'CE9178' },
+        { token: 'function', foreground: 'DCDCAA' },
+        { token: 'variable', foreground: '9CDCFE' },
+        { token: 'type', foreground: '4EC9B0' },
+        { token: 'class', foreground: '4EC9B0' },
       ],
       colors: {
         'editor.background': '#1e1e1e',
@@ -47,47 +51,267 @@ export function CodeEditor({ file, onChange, settings, className = '' }: CodeEdi
         'editorLineNumber.foreground': '#858585',
         'editor.selectionBackground': '#264f78',
         'editor.lineHighlightBackground': '#2a2d2e',
+        'editorError.foreground': '#f44747',
+        'editorWarning.foreground': '#ff8c00',
+        'editorInfo.foreground': '#75beff',
       }
     });
     
     const themeName = settings?.theme === 'light' ? 'vs' : 'vs-dark-custom';
     monaco.editor.setTheme(themeName);
 
-    // Enhanced editor configuration for web development
-    monaco.editor.setModelLanguage(editor.getModel()!, language);
-    
-    // Enable better IntelliSense for HTML, CSS, and JavaScript
-    if (language === 'html') {
-      editor.updateOptions({
-        suggest: {
-          showWords: true,
-          showSnippets: true,
-        },
-      });
+    // Set language for the model
+    const model = editor.getModel();
+    if (model) {
+      monaco.editor.setModelLanguage(model, language);
     }
     
-    if (language === 'css') {
-      editor.updateOptions({
-        suggest: {
-          showWords: true,
-          showSnippets: true,
-        },
-      });
-    }
-    
-    if (language === 'javascript') {
-      editor.updateOptions({
-        suggest: {
-          showWords: true,
-          showSnippets: true,
-        },
-      });
+    // Configure global Monaco settings for better IntelliSense
+    monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
+      target: monaco.languages.typescript.ScriptTarget.ES2020,
+      allowNonTsExtensions: true,
+      moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+      module: monaco.languages.typescript.ModuleKind.CommonJS,
+      noEmit: true,
+      esModuleInterop: true,
+      jsx: monaco.languages.typescript.JsxEmit.React,
+      reactNamespace: 'React',
+      allowJs: true,
+      typeRoots: ['node_modules/@types']
+    });
+
+    monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
+      target: monaco.languages.typescript.ScriptTarget.ES2020,
+      allowNonTsExtensions: true,
+      moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+      module: monaco.languages.typescript.ModuleKind.ESNext,
+      noEmit: true,
+      esModuleInterop: true,
+      allowSyntheticDefaultImports: true,
+      jsx: monaco.languages.typescript.JsxEmit.ReactJSX,
+      strict: true,
+      typeRoots: ['node_modules/@types']
+    });
+
+    // Enable diagnostics and better error reporting
+    monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+      noSemanticValidation: false,
+      noSyntaxValidation: false,
+      noSuggestionDiagnostics: false
+    });
+
+    monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+      noSemanticValidation: false,
+      noSyntaxValidation: false,
+      noSuggestionDiagnostics: false
+    });
+
+    // Add common library definitions
+    const reactTypes = `
+      declare module 'react' {
+        export interface FC<P = {}> {
+          (props: P & { children?: ReactNode }): ReactElement | null;
+        }
+        export interface ReactElement<P = any, T extends string | JSXElementConstructor<any> = string | JSXElementConstructor<any>> {
+          type: T;
+          props: P;
+          key: Key | null;
+        }
+        export type ReactNode = ReactChild | ReactFragment | ReactPortal | boolean | null | undefined;
+        export type Key = string | number;
+        export function useState<S>(initialState: S | (() => S)): [S, Dispatch<SetStateAction<S>>];
+        export function useEffect(effect: EffectCallback, deps?: DependencyList): void;
+        export function useCallback<T extends (...args: any[]) => any>(callback: T, deps: DependencyList): T;
+        export type Dispatch<A> = (value: A) => void;
+        export type SetStateAction<S> = S | ((prevState: S) => S);
+      }
+    `;
+
+    // Add type definitions for common libraries
+    if (language === 'typescript' || language === 'javascript') {
+      monaco.languages.typescript.javascriptDefaults.addExtraLib(reactTypes, 'file:///node_modules/@types/react/index.d.ts');
+      monaco.languages.typescript.typescriptDefaults.addExtraLib(reactTypes, 'file:///node_modules/@types/react/index.d.ts');
     }
 
-    // Add keyboard shortcuts
+    // Enhanced IntelliSense configuration per language
+    switch (language) {
+      case 'html':
+        editor.updateOptions({
+          suggest: {
+            showWords: true,
+            showSnippets: true,
+            showConstructors: true,
+            showFunctions: true,
+            showVariables: true,
+          },
+          quickSuggestions: {
+            other: true,
+            comments: true,
+            strings: true
+          }
+        });
+        break;
+
+      case 'css':
+        editor.updateOptions({
+          suggest: {
+            showWords: true,
+            showSnippets: true,
+            showProperties: true,
+            showValues: true,
+          },
+          quickSuggestions: {
+            other: true,
+            comments: true,
+            strings: true
+          }
+        });
+        break;
+
+      case 'javascript':
+      case 'typescript':
+        editor.updateOptions({
+          suggest: {
+            showWords: true,
+            showSnippets: true,
+            showFunctions: true,
+            showConstructors: true,
+            showFields: true,
+            showVariables: true,
+            showClasses: true,
+            showModules: true,
+            showProperties: true,
+            showMethods: true,
+            showKeywords: true,
+          },
+          quickSuggestions: {
+            other: true,
+            comments: false,
+            strings: false
+          },
+          parameterHints: {
+            enabled: true
+          },
+          autoClosingBrackets: 'always',
+          autoClosingQuotes: 'always',
+          formatOnPaste: true,
+          formatOnType: true
+        });
+        break;
+
+      case 'python':
+        editor.updateOptions({
+          suggest: {
+            showWords: true,
+            showSnippets: true,
+            showFunctions: true,
+            showConstructors: true,
+            showFields: true,
+            showVariables: true,
+            showClasses: true,
+            showModules: true,
+            showKeywords: true,
+          },
+          quickSuggestions: {
+            other: true,
+            comments: false,
+            strings: false
+          }
+        });
+        break;
+
+      default:
+        editor.updateOptions({
+          suggest: {
+            showWords: true,
+            showSnippets: true,
+          }
+        });
+    }
+
+    // Real-time error detection and markers
+    const updateErrorMarkers = () => {
+      const model = editor.getModel();
+      if (!model) return;
+
+      // Custom syntax validation for different languages
+      const content = model.getValue();
+      const customMarkers: any[] = [];
+
+      if (language === 'javascript' || language === 'typescript') {
+        // Check for common JS/TS errors
+        const lines = content.split('\n');
+        lines.forEach((line, index) => {
+          // Check for missing semicolons (basic check)
+          if (line.trim().match(/^(let|const|var)\s+\w+\s*=.*[^;]$/)) {
+            customMarkers.push({
+              severity: monaco.MarkerSeverity.Warning,
+              startLineNumber: index + 1,
+              startColumn: line.length,
+              endLineNumber: index + 1,
+              endColumn: line.length + 1,
+              message: 'Consider adding a semicolon'
+            });
+          }
+
+          // Check for undefined variables (basic check)
+          const undefinedMatch = line.match(/console\.log\((\w+)\)/);
+          if (undefinedMatch && !content.includes(`${undefinedMatch[1]} =`)) {
+            customMarkers.push({
+              severity: monaco.MarkerSeverity.Info,
+              startLineNumber: index + 1,
+              startColumn: line.indexOf(undefinedMatch[1]) + 1,
+              endLineNumber: index + 1,
+              endColumn: line.indexOf(undefinedMatch[1]) + undefinedMatch[1].length + 1,
+              message: `Variable '${undefinedMatch[1]}' might not be defined`
+            });
+          }
+        });
+      }
+
+      if (language === 'python') {
+        // Basic Python syntax checks
+        const lines = content.split('\n');
+        lines.forEach((line, index) => {
+          // Check for basic indentation issues
+          if (line.match(/^\s*(if|for|while|def|class).*[^:]$/)) {
+            customMarkers.push({
+              severity: monaco.MarkerSeverity.Error,
+              startLineNumber: index + 1,
+              startColumn: line.length,
+              endLineNumber: index + 1,
+              endColumn: line.length + 1,
+              message: 'Missing colon at end of statement'
+            });
+          }
+        });
+      }
+
+      // Set all markers (including TypeScript compiler errors + custom ones)
+      monaco.editor.setModelMarkers(model, 'customLinter', customMarkers);
+    };
+
+    // Update markers on content change
+    model?.onDidChangeContent(() => {
+      setTimeout(updateErrorMarkers, 500); // Debounce
+    });
+
+    // Initial marker update
+    setTimeout(updateErrorMarkers, 1000);
+
+    // Add enhanced keyboard shortcuts
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-      // Save shortcut - content is already being saved via onChange
       console.log('File saved');
+    });
+
+    // Format document shortcut
+    editor.addCommand(monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyF, () => {
+      editor.getAction('editor.action.formatDocument')?.run();
+    });
+
+    // Quick fix shortcut
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Period, () => {
+      editor.getAction('editor.action.quickFix')?.run();
     });
   };
 

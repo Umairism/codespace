@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { FileNode, Project } from '../types';
 import { findFileById, generateFileId, updateFileInTree, removeFileFromTree } from '../utils/fileUtils';
 import { useLocalStorage } from './useLocalStorage';
@@ -33,12 +33,16 @@ export function useFileSystem(initialProject: Project) {
     });
   }, [currentProject.id, setProjects]);
 
-  const createFile = useCallback((name: string, parentId?: string, type: 'file' | 'folder' = 'file') => {
-    console.log('createFile called with:', { name, parentId, type });
+  const createFile = useCallback((name: string, parentId?: string, type: 'file' | 'folder' = 'file', customContent?: string) => {
+    console.log('createFile called with:', { name, parentId, type, hasCustomContent: !!customContent });
     
-    // Add default content based on file type for testing
+    // Use custom content if provided, otherwise generate default content based on file type
     let defaultContent = '';
-    if (type === 'file') {
+    if (customContent) {
+      // Use the provided custom content
+      defaultContent = customContent;
+    } else if (type === 'file') {
+      // Generate default content based on file extension
       const ext = name.split('.').pop()?.toLowerCase();
       switch (ext) {
         case 'js':
