@@ -4,13 +4,23 @@ import { FileNode } from '../../types';
 import { getLanguageFromExtension, getFileExtension } from '../../utils/fileUtils';
 import { useMonacoEditor } from '../../contexts/MonacoEditorContext';
 
+interface Settings {
+  theme: string;
+  fontSize: number;
+  tabSize: number;
+  wordWrap: boolean;
+  autoSave: boolean;
+  minimap: boolean;
+}
+
 interface CodeEditorProps {
   file: FileNode;
   onChange: (content: string) => void;
+  settings?: Settings;
   className?: string;
 }
 
-export function CodeEditor({ file, onChange, className = '' }: CodeEditorProps) {
+export function CodeEditor({ file, onChange, settings, className = '' }: CodeEditorProps) {
   const editorRef = useRef<any>(null);
   const { setEditor } = useMonacoEditor();
 
@@ -27,6 +37,9 @@ export function CodeEditor({ file, onChange, className = '' }: CodeEditorProps) 
         { token: 'keyword', foreground: '569CD6' },
         { token: 'string', foreground: 'CE9178' },
         { token: 'number', foreground: 'B5CEA8' },
+        { token: 'tag', foreground: '4FC1FF' },
+        { token: 'attribute.name', foreground: '92C5F8' },
+        { token: 'attribute.value', foreground: 'CE9178' },
       ],
       colors: {
         'editor.background': '#1e1e1e',
@@ -37,7 +50,39 @@ export function CodeEditor({ file, onChange, className = '' }: CodeEditorProps) 
       }
     });
     
-    monaco.editor.setTheme('vs-dark-custom');
+    const themeName = settings?.theme === 'light' ? 'vs' : 'vs-dark-custom';
+    monaco.editor.setTheme(themeName);
+
+    // Enhanced editor configuration for web development
+    monaco.editor.setModelLanguage(editor.getModel()!, language);
+    
+    // Enable better IntelliSense for HTML, CSS, and JavaScript
+    if (language === 'html') {
+      editor.updateOptions({
+        suggest: {
+          showWords: true,
+          showSnippets: true,
+        },
+      });
+    }
+    
+    if (language === 'css') {
+      editor.updateOptions({
+        suggest: {
+          showWords: true,
+          showSnippets: true,
+        },
+      });
+    }
+    
+    if (language === 'javascript') {
+      editor.updateOptions({
+        suggest: {
+          showWords: true,
+          showSnippets: true,
+        },
+      });
+    }
 
     // Add keyboard shortcuts
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
@@ -58,18 +103,18 @@ export function CodeEditor({ file, onChange, className = '' }: CodeEditorProps) 
         onChange={(value) => onChange(value || '')}
         onMount={handleEditorDidMount}
         options={{
-          minimap: { enabled: true },
-          fontSize: 14,
+          minimap: { enabled: settings?.minimap ?? true },
+          fontSize: settings?.fontSize ?? 14,
           lineNumbers: 'on',
           rulers: [80, 120],
-          wordWrap: 'on',
+          wordWrap: settings?.wordWrap ? 'on' : 'off',
           automaticLayout: true,
           scrollBeyondLastLine: false,
           folding: true,
           lineDecorationsWidth: 10,
           lineNumbersMinChars: 3,
           glyphMargin: false,
-          tabSize: 2,
+          tabSize: settings?.tabSize ?? 2,
           insertSpaces: true,
           renderWhitespace: 'selection',
           bracketPairColorization: { enabled: true },

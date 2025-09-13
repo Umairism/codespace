@@ -11,10 +11,12 @@ import {
   Trash2,
   FileText,
   Copy,
-  Clipboard
+  Clipboard,
+  Download
 } from 'lucide-react';
 import { FileNode } from '../../types';
 import { getFileExtension } from '../../utils/fileUtils';
+import { downloadSingleFile } from '../../utils/fileDownload';
 
 interface FileTreeProps {
   files: FileNode[];
@@ -252,6 +254,19 @@ function FileItem({
                 <Copy className="w-4 h-4 mr-2" />
                 Copy
               </button>
+              {file.type === 'file' && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    downloadSingleFile(file);
+                    setShowContextMenu(false);
+                  }}
+                  className="w-full flex items-center px-3 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download
+                </button>
+              )}
               {clipboardFile && (
                 <button
                   onClick={(e) => {

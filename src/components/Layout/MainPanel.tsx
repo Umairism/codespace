@@ -3,6 +3,15 @@ import { CodeEditor } from '../Editor/CodeEditor';
 import { FileNode } from '../../types';
 import { findFileById } from '../../utils/fileUtils';
 
+interface Settings {
+  theme: string;
+  fontSize: number;
+  tabSize: number;
+  wordWrap: boolean;
+  autoSave: boolean;
+  minimap: boolean;
+}
+
 interface MainPanelProps {
   files: FileNode[];
   openTabs: string[];
@@ -10,6 +19,7 @@ interface MainPanelProps {
   onTabClick: (fileId: string) => void;
   onTabClose: (fileId: string) => void;
   onFileChange: (fileId: string, content: string) => void;
+  settings?: Settings;
   className?: string;
 }
 
@@ -20,6 +30,7 @@ export function MainPanel({
   onTabClick,
   onTabClose,
   onFileChange,
+  settings,
   className = ''
 }: MainPanelProps) {
   const activeFile = activeFileId ? findFileById(files, activeFileId) : null;
@@ -39,6 +50,7 @@ export function MainPanel({
           <CodeEditor
             file={activeFile}
             onChange={(content) => onFileChange(activeFile.id, content)}
+            settings={settings}
             className="h-full w-full"
           />
         ) : (
