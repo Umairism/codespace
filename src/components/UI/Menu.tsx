@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { 
   ChevronDown, 
   FileText, 
-  FolderPlus, 
+  FolderPlus,
+  Folder,
   Play, 
   Save, 
   Settings, 
@@ -11,16 +12,20 @@ import {
   Search, 
   Replace, 
   Eye, 
-  EyeOff,
   Terminal,
-  Sidebar
+  Sidebar,
+  Download,
+  Archive
 } from 'lucide-react';
 
 interface MenuProps {
   onNewFile: () => void;
   onNewFolder: () => void;
+  onNewProject?: () => void;
   onSave: () => void;
   onSaveAll: () => void;
+  onDownloadProject?: () => void;
+  onDownloadProjectFiles?: () => void;
   onSettings: () => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -89,9 +94,12 @@ function MenuDropdown({ label, children }: { label: string; children: React.Reac
 
 export function Menu({ 
   onNewFile, 
-  onNewFolder, 
+  onNewFolder,
+  onNewProject,
   onSave, 
   onSaveAll,
+  onDownloadProject,
+  onDownloadProjectFiles,
   onSettings,
   onUndo,
   onRedo,
@@ -108,9 +116,13 @@ export function Menu({
       <MenuDropdown label="File">
         <MenuItem label="New File" shortcut="Ctrl+N" icon={FileText} onClick={onNewFile} />
         <MenuItem label="New Folder" icon={FolderPlus} onClick={onNewFolder} />
+        {onNewProject && <MenuItem label="New Project" icon={Folder} onClick={onNewProject} />}
         <div className="border-t border-gray-700 my-1" />
         <MenuItem label="Save" shortcut="Ctrl+S" icon={Save} onClick={onSave} />
         <MenuItem label="Save All" shortcut="Ctrl+Shift+S" icon={Save} onClick={onSaveAll} />
+        <div className="border-t border-gray-700 my-1" />
+        {onDownloadProject && <MenuItem label="Download Project" icon={Archive} onClick={onDownloadProject} />}
+        {onDownloadProjectFiles && <MenuItem label="Download All Files" icon={Download} onClick={onDownloadProjectFiles} />}
         <div className="border-t border-gray-700 my-1" />
         <MenuItem label="Settings" icon={Settings} onClick={onSettings} />
       </MenuDropdown>

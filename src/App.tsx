@@ -9,8 +9,11 @@ import { useCodeExecution } from './hooks/useCodeExecution';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { getDefaultProjects } from './utils/projectTemplates';
 import { getLanguageFromExtension, getFileExtension } from './utils/fileUtils';
-import { FindDialog } from './components/UI/FindDialog';
+import { downloadProject, downloadProjectFiles } from './utils/fileDownload';
 import { SettingsDialog } from './components/UI/SettingsDialog';
+import { InputDialog } from './components/UI/InputDialog';
+import { ConfirmDialog } from './components/UI/ConfirmDialog';
+import { ProjectTemplateDialog } from './components/UI/ProjectTemplateDialog';
 import { NotificationSystem, useNotifications } from './components/UI/NotificationSystem';
 import { MonacoEditorContext } from './contexts/MonacoEditorContext';
 
@@ -27,11 +30,21 @@ function App() {
   const [terminalVisible, setTerminalVisible] = useState(true);
   const [previewVisible, setPreviewVisible] = useState(true);
   
-  // Find/Replace states
-  const [findVisible, setFindVisible] = useState(false);
-  const [replaceVisible, setReplaceVisible] = useState(false);
-  const [findInFilesVisible, setFindInFilesVisible] = useState(false);
+  // UI dialog states
   const [settingsVisible, setSettingsVisible] = useState(false);
+  const [projectTemplateVisible, setProjectTemplateVisible] = useState(false);
+  const [inputDialogVisible, setInputDialogVisible] = useState(false);
+  const [inputDialogConfig, setInputDialogConfig] = useState({
+    title: '',
+    placeholder: '',
+    onConfirm: (_value: string) => {}
+  });
+  const [confirmDialogVisible, setConfirmDialogVisible] = useState(false);
+  const [confirmDialogConfig, setConfirmDialogConfig] = useState({
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
   
   // Force re-render key for debugging
   const [renderKey, setRenderKey] = useState(0);
@@ -72,31 +85,32 @@ function App() {
   const { output, isExecuting, executeCode, clearOutput } = codeExecution;
 
   const handleNewFile = useCallback(() => {
-    const fileName = prompt('Enter file name:');
-    if (fileName && fileName.trim()) {
-      const newFile = createFile(fileName.trim());
-      openFile(newFile.id);
-      setRenderKey(prev => prev + 1);
-      addNotification('success', `File "${fileName.trim()}" created successfully`);
-    } else {
-      addNotification('info', 'File creation cancelled');
-    }
+    setInputDialogConfig({
+      title: 'Create New File',
+      placeholder: 'Enter file name (e.g., script.js, index.html)...',
+      onConfirm: (fileName: string) => {
+        const newFile = createFile(fileName);
+        openFile(newFile.id);
+        setRenderKey(prev => prev + 1);
+        addNotification('success', `File "${fileName}" created successfully`);
+        setInputDialogVisible(false);
+      }
+    });
+    setInputDialogVisible(true);
   }, [createFile, openFile, addNotification]);
 
   const handleNewFolder = useCallback(() => {
-    const folderName = prompt('Enter folder name:');
-    console.log('New folder dialog result:', folderName);
-    if (folderName?.trim()) {
-      console.log('Creating folder:', folderName.trim());
-      const newFolder = createFile(folderName.trim(), undefined, 'folder');
-      console.log('Created folder:', newFolder);
-      // Force re-render
-      setRenderKey(prev => prev + 1);
-      addNotification('success', `Folder "${folderName.trim()}" created successfully`);
-    } else {
-      console.log('Folder creation cancelled or empty name');
-      addNotification('info', 'Folder creation cancelled');
-    }
+    setInputDialogConfig({
+      title: 'Create New Folder',
+      placeholder: 'Enter folder name...',
+      onConfirm: (folderName: string) => {
+        createFile(folderName, undefined, 'folder');
+        setRenderKey(prev => prev + 1);
+        addNotification('success', `Folder "${folderName}" created successfully`);
+        setInputDialogVisible(false);
+      }
+    });
+    setInputDialogVisible(true);
   }, [createFile, addNotification]);
 
   const handleSave = useCallback(() => {
@@ -130,19 +144,33 @@ function App() {
   }, [saveFile]);
 
   const handleCreateFile = useCallback((parentId?: string) => {
-    const fileName = prompt('Enter file name:');
-    if (fileName?.trim()) {
-      const newFile = createFile(fileName.trim(), parentId);
-      openFile(newFile.id);
-    }
-  }, [createFile, openFile]);
+    setInputDialogConfig({
+      title: 'Create New File',
+      placeholder: 'Enter file name (e.g., script.js, index.html)...',
+      onConfirm: (fileName: string) => {
+        const newFile = createFile(fileName, parentId);
+        openFile(newFile.id);
+        setRenderKey(prev => prev + 1);
+        addNotification('success', `File "${fileName}" created successfully`);
+        setInputDialogVisible(false);
+      }
+    });
+    setInputDialogVisible(true);
+  }, [createFile, openFile, addNotification]);
 
   const handleCreateFolder = useCallback((parentId?: string) => {
-    const folderName = prompt('Enter folder name:');
-    if (folderName?.trim()) {
-      createFile(folderName.trim(), parentId, 'folder');
-    }
-  }, [createFile]);
+    setInputDialogConfig({
+      title: 'Create New Folder',
+      placeholder: 'Enter folder name...',
+      onConfirm: (folderName: string) => {
+        createFile(folderName, parentId, 'folder');
+        setRenderKey(prev => prev + 1);
+        addNotification('success', `Folder "${folderName}" created successfully`);
+        setInputDialogVisible(false);
+      }
+    });
+    setInputDialogVisible(true);
+  }, [createFile, addNotification]);
 
   const handleCopy = useCallback((fileId: string) => {
     copyFile(fileId);
@@ -172,10 +200,20 @@ function App() {
   }, [renameFile]);
 
   const handleDelete = useCallback((fileId: string) => {
-    if (confirm('Are you sure you want to delete this item?')) {
-      deleteFile(fileId);
-    }
-  }, [deleteFile]);
+    const file = currentProject.files.find(f => f.id === fileId);
+    const fileName = file?.name || 'this item';
+    
+    setConfirmDialogConfig({
+      title: 'Delete Item',
+      message: `Are you sure you want to delete "${fileName}"? This action cannot be undone.`,
+      onConfirm: () => {
+        deleteFile(fileId);
+        addNotification('success', `"${fileName}" deleted successfully`);
+        setConfirmDialogVisible(false);
+      }
+    });
+    setConfirmDialogVisible(true);
+  }, [deleteFile, currentProject.files, addNotification]);
 
   // Menu handlers
   const handleSaveAll = useCallback(() => {
@@ -204,33 +242,90 @@ function App() {
     addNotification('success', 'Settings saved successfully!');
   }, [addNotification]);
 
-  // Find/Replace functionality
-  const handleFindInEditor = useCallback((text: string, _options: any) => {
+  const handleDownloadProject = useCallback(() => {
+    try {
+      downloadProject(currentProject);
+      addNotification('success', `Project "${currentProject.name}" downloaded successfully!`);
+    } catch (error) {
+      console.error('Failed to download project:', error);
+      addNotification('error', 'Failed to download project');
+    }
+  }, [currentProject, addNotification]);
+
+  const handleDownloadProjectFiles = useCallback(() => {
+    try {
+      downloadProjectFiles(currentProject);
+      addNotification('success', `All files from "${currentProject.name}" will be downloaded individually`);
+    } catch (error) {
+      console.error('Failed to download project files:', error);
+      addNotification('error', 'Failed to download project files');
+    }
+  }, [currentProject, addNotification]);
+
+  const handleNewProject = useCallback(() => {
+    setProjectTemplateVisible(true);
+  }, []);
+
+  const handleSelectTemplate = useCallback((templateId: string) => {
+    // Import the template functions
+    import('./utils/projectTemplates').then((templates) => {
+      let newProject;
+      switch (templateId) {
+        case 'html':
+          newProject = templates.createHtmlProject();
+          break;
+        case 'react':
+          newProject = templates.createReactProject();
+          break;
+        case 'bootstrap':
+          newProject = templates.createBootstrapProject();
+          break;
+        case 'javascript':
+          newProject = templates.createJavaScriptProject();
+          break;
+        case 'python':
+          newProject = templates.createPythonProject();
+          break;
+        case 'flask':
+          newProject = templates.createFlaskProject();
+          break;
+        case 'datascience':
+          newProject = templates.createDataScienceProject();
+          break;
+        case 'empty':
+          newProject = templates.createEmptyProject();
+          break;
+        default:
+          newProject = templates.createHtmlProject();
+      }
+      
+      // Clear current project and load the new template
+      localStorage.setItem('ide-projects', JSON.stringify([newProject]));
+      localStorage.setItem('ide-current-project', newProject.id);
+      
+      // Force page reload to properly initialize the new project
+      window.location.reload();
+    });
+  }, []);
+
+  // Find/Replace functionality - Direct Monaco actions without dialogs
+  const handleFindInEditor = useCallback(() => {
     if (monacoEditor) {
       monacoEditor.getAction('actions.find').run();
-      addNotification('info', `Opening find widget for: "${text}"`);
     } else {
-      addNotification('info', `Searching for: "${text}"`);
+      addNotification('info', 'No active editor');
     }
   }, [monacoEditor, addNotification]);
 
-  const handleReplaceInEditor = useCallback((findText: string, replaceText: string, _options: any) => {
+  const handleReplaceInEditor = useCallback(() => {
     if (monacoEditor) {
       monacoEditor.getAction('editor.action.startFindReplaceAction').run();
-      addNotification('info', `Opening replace widget: "${findText}" → "${replaceText}"`);
     } else {
-      addNotification('info', `Replace "${findText}" with "${replaceText}"`);
+      addNotification('info', 'No active editor');
     }
   }, [monacoEditor, addNotification]);
 
-  const handleReplaceAllInEditor = useCallback((findText: string, replaceText: string, _options: any) => {
-    if (monacoEditor) {
-      monacoEditor.getAction('editor.action.startFindReplaceAction').run();
-      addNotification('info', `Replace all: "${findText}" → "${replaceText}"`);
-    } else {
-      addNotification('info', `Replace all "${findText}" with "${replaceText}"`);
-    }
-  }, [monacoEditor, addNotification]);
+
 
   const handleUndo = useCallback(() => {
     // Monaco Editor handles undo/redo automatically with Ctrl+Z/Ctrl+Y
@@ -247,19 +342,17 @@ function App() {
   }, [addNotification]);
 
   const handleFind = useCallback(() => {
-    setFindVisible(true);
-    console.log('Opening find dialog...');
-  }, []);
+    handleFindInEditor();
+  }, [handleFindInEditor]);
 
   const handleReplace = useCallback(() => {
-    setReplaceVisible(true);
-    console.log('Opening replace dialog...');
-  }, []);
+    handleReplaceInEditor();
+  }, [handleReplaceInEditor]);
 
   const handleFindInFiles = useCallback(() => {
-    setFindInFilesVisible(true);
-    console.log('Opening find in files...');
-  }, []);
+    // For now, just use Monaco's find in current file
+    handleFindInEditor();
+  }, [handleFindInEditor]);
 
   const handleToggleSidebar = useCallback(() => {
     setSidebarVisible(prev => !prev);
@@ -293,6 +386,7 @@ function App() {
       <Menu
         onNewFile={handleNewFile}
         onNewFolder={handleNewFolder}
+        onNewProject={handleNewProject}
         onSave={handleSave}
         onSaveAll={handleSaveAll}
         onSettings={handleSettings}
@@ -329,93 +423,84 @@ function App() {
         </button>
       </div>
       
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex relative overflow-hidden">
+        {/* Sidebar */}
         {sidebarVisible && (
-          <Sidebar
-            key={renderKey}
-            files={currentProject.files}
-            activeFileId={currentProject.activeFile}
-            onFileClick={openFile}
-            onCreateFile={handleCreateFile}
-            onCreateFolder={handleCreateFolder}
-            onRename={handleRename}
-            onDelete={handleDelete}
-            onToggleFolder={toggleFolder}
-            onCopy={handleCopy}
-            onPaste={handlePaste}
-            onMove={handleMove}
-            width={sidebarWidth}
-          />
-        )}
-        
-        {sidebarVisible && (
-          <div 
-            className="w-1 bg-gray-700 hover:bg-blue-500 cursor-col-resize transition-colors"
-            onMouseDown={(e) => {
-            const startX = e.clientX;
-            const startWidth = sidebarWidth;
+          <>
+            <div 
+              className="absolute left-0 top-0 bottom-0 z-10"
+              style={{ width: `${sidebarWidth}px` }}
+            >
+              <Sidebar
+                key={renderKey}
+                files={currentProject.files}
+                activeFileId={currentProject.activeFile}
+                onFileClick={openFile}
+                onCreateFile={handleCreateFile}
+                onCreateFolder={handleCreateFolder}
+                onRename={handleRename}
+                onDelete={handleDelete}
+                onToggleFolder={toggleFolder}
+                onCopy={handleCopy}
+                onPaste={handlePaste}
+                onMove={handleMove}
+                width={sidebarWidth}
+                className="h-full"
+              />
+            </div>
             
-            const handleMouseMove = (e: MouseEvent) => {
-              const diff = e.clientX - startX;
-              const newWidth = Math.max(200, Math.min(600, startWidth + diff));
-              setSidebarWidth(newWidth);
-            };
-            
-            const handleMouseUp = () => {
-              document.removeEventListener('mousemove', handleMouseMove);
-              document.removeEventListener('mouseup', handleMouseUp);
-            };
-            
-            document.addEventListener('mousemove', handleMouseMove);
-            document.addEventListener('mouseup', handleMouseUp);
-          }}
-        />
-        )}
-        
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex-1 flex overflow-hidden">
-          <MainPanel
-            files={currentProject.files}
-            openTabs={currentProject.openTabs}
-            activeFileId={currentProject.activeFile}
-            onTabClick={setActiveFile}
-            onTabClose={closeFile}
-            onFileChange={handleFileChange}
-            className="flex-1"
-          />
-          {previewVisible && (
-              <>
-                <div 
-                  className="w-1 bg-gray-700 hover:bg-blue-500 cursor-col-resize transition-colors"
-                  onMouseDown={(e) => {
-                    const startX = e.clientX;
-                    const startWidth = previewWidth;
-                    
-                    const handleMouseMove = (e: MouseEvent) => {
-                      const diff = startX - e.clientX;
-                      const newWidth = Math.max(300, Math.min(800, startWidth + diff));
-                      setPreviewWidth(newWidth);
-                    };
-                    
-                    const handleMouseUp = () => {
-                      document.removeEventListener('mousemove', handleMouseMove);
-                      document.removeEventListener('mouseup', handleMouseUp);
-                    };
-                    
-                    document.addEventListener('mousemove', handleMouseMove);
-                    document.addEventListener('mouseup', handleMouseUp);
-                  }}
-                />
+            <div 
+              className="absolute top-0 bottom-0 w-1 bg-gray-700 hover:bg-blue-500 cursor-col-resize transition-colors z-20"
+              style={{ left: `${sidebarWidth}px` }}
+              onMouseDown={(e) => {
+                const startX = e.clientX;
+                const startWidth = sidebarWidth;
                 
-                <PreviewPanel
-                  files={currentProject.files}
-                  activeFileId={currentProject.activeFile}
-                  width={previewWidth}
-                />
-              </>
-            )}
+                const handleMouseMove = (e: MouseEvent) => {
+                  const diff = e.clientX - startX;
+                  const newWidth = Math.max(200, Math.min(600, startWidth + diff));
+                  setSidebarWidth(newWidth);
+                };
+                
+                const handleMouseUp = () => {
+                  document.removeEventListener('mousemove', handleMouseMove);
+                  document.removeEventListener('mouseup', handleMouseUp);
+                };
+                
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
+              }}
+            />
+          </>
+        )}
+        
+        {/* Main content area */}
+        <div 
+          className="absolute top-0 bottom-0 flex flex-col overflow-hidden"
+          style={{ 
+            left: sidebarVisible ? `${sidebarWidth + 4}px` : '0px',
+            right: previewVisible ? `${previewWidth + 4}px` : '0px'
+          }}
+        >
+          <div 
+            className="flex-1 overflow-hidden"
+            style={{ 
+              bottom: terminalVisible ? `${outputHeight + 4}px` : '0px'
+            }}
+          >
+            <MainPanel
+              files={currentProject.files}
+              openTabs={currentProject.openTabs}
+              activeFileId={currentProject.activeFile}
+              onTabClick={setActiveFile}
+              onTabClose={closeFile}
+              onFileChange={handleFileChange}
+              settings={settings}
+              className="h-full"
+            />
           </div>
           
+          {/* Terminal/Output Panel */}
           {terminalVisible && (
             <>
               <div 
@@ -440,47 +525,90 @@ function App() {
                 }}
               />
               
-              <OutputPanel
-                output={output}
-                isExecuting={isExecuting}
-                onRun={handleRun}
-                onClear={clearOutput}
-                height={outputHeight}
-              />
+              <div style={{ height: `${outputHeight}px` }}>
+                <OutputPanel
+                  output={output}
+                  isExecuting={isExecuting}
+                  onRun={handleRun}
+                  onClear={clearOutput}
+                  height={outputHeight}
+                />
+              </div>
             </>
           )}
         </div>
+        
+        {/* Preview Panel */}
+        {previewVisible && (
+          <>
+            <div 
+              className="absolute top-0 bottom-0 w-1 bg-gray-700 hover:bg-blue-500 cursor-col-resize transition-colors z-20"
+              style={{ right: `${previewWidth}px` }}
+              onMouseDown={(e) => {
+                const startX = e.clientX;
+                const startWidth = previewWidth;
+                
+                const handleMouseMove = (e: MouseEvent) => {
+                  const diff = startX - e.clientX;
+                  const newWidth = Math.max(300, Math.min(800, startWidth + diff));
+                  setPreviewWidth(newWidth);
+                };
+                
+                const handleMouseUp = () => {
+                  document.removeEventListener('mousemove', handleMouseMove);
+                  document.removeEventListener('mouseup', handleMouseUp);
+                };
+                
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
+              }}
+            />
+            
+            <div 
+              className="absolute right-0 top-0 bottom-0"
+              style={{ width: `${previewWidth}px` }}
+            >
+              <PreviewPanel
+                files={currentProject.files}
+                activeFileId={currentProject.activeFile}
+                width={previewWidth}
+                className="h-full"
+              />
+            </div>
+          </>
+        )}
       </div>
 
       {/* Dialogs */}
-      <FindDialog
-        visible={findVisible}
-        onClose={() => setFindVisible(false)}
-        mode="find"
-        onFind={handleFindInEditor}
-      />
-      
-      <FindDialog
-        visible={replaceVisible}
-        onClose={() => setReplaceVisible(false)}
-        mode="replace"
-        onFind={handleFindInEditor}
-        onReplace={handleReplaceInEditor}
-        onReplaceAll={handleReplaceAllInEditor}
-      />
-      
-      <FindDialog
-        visible={findInFilesVisible}
-        onClose={() => setFindInFilesVisible(false)}
-        mode="findInFiles"
-        onFind={handleFindInEditor}
-      />
-      
       <SettingsDialog
         visible={settingsVisible}
         onClose={() => setSettingsVisible(false)}
         onSaveSettings={handleSaveSettings}
         currentSettings={settings}
+      />
+      
+      <InputDialog
+        visible={inputDialogVisible}
+        title={inputDialogConfig.title}
+        placeholder={inputDialogConfig.placeholder}
+        onConfirm={inputDialogConfig.onConfirm}
+        onCancel={() => setInputDialogVisible(false)}
+      />
+      
+      <ConfirmDialog
+        visible={confirmDialogVisible}
+        title={confirmDialogConfig.title}
+        message={confirmDialogConfig.message}
+        onConfirm={confirmDialogConfig.onConfirm}
+        onCancel={() => setConfirmDialogVisible(false)}
+        confirmText="Delete"
+        type="danger"
+      />
+      
+      <ProjectTemplateDialog
+        visible={projectTemplateVisible}
+        onClose={() => setProjectTemplateVisible(false)}
+        onSelectTemplate={handleSelectTemplate}
       />
       
       {/* Notification System */}
