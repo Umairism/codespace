@@ -389,6 +389,8 @@ function App() {
         onNewProject={handleNewProject}
         onSave={handleSave}
         onSaveAll={handleSaveAll}
+        onDownloadProject={handleDownloadProject}
+        onDownloadProjectFiles={handleDownloadProjectFiles}
         onSettings={handleSettings}
         onUndo={handleUndo}
         onRedo={handleRedo}
